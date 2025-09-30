@@ -187,3 +187,52 @@ html.dark .btn-warning { color:#1f2937; }
 .flatpickr-wrapper:hover .calendar-toggle {
   border-color: var(--text-secondary);
 }
+
+/* ------------------------------------------------------ */
+/* --- Manual (Generate button) transactions highlight ---*/
+/* ------------------------------------------------------ */
+
+/* Color every cell in a manual row */
+.transactions-table tbody tr.row-manual td {
+  background: rgba(245, 158, 11, .06); /* amber-500 @ ~6% */
+}
+html.dark .transactions-table tbody tr.row-manual td {
+  background: rgba(251, 191, 36, .10); /* amber-400 @ ~10% */
+}
+
+/* Keep amber on hover (and neutralize the default blue hover) */
+.transactions-table tbody tr.row-manual:hover { background: transparent !important; }
+.transactions-table tbody tr.row-manual:hover td {
+  background: rgba(245, 158, 11, .06) !important;
+}
+html.dark .transactions-table tbody tr.row-manual:hover td {
+  background: rgba(251, 191, 36, .10) !important;
+}
+
+/* Left stripe on the first cell */
+.transactions-table tbody tr.row-manual td:first-child { position: relative; }
+.transactions-table tbody tr.row-manual td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--color-yellow);
+}
+
+/* "Manual" badge next to merchant name */
+.manual-badge {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: .15rem .5rem;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, .18);
+  color: #7c2d12;
+  font-size: .70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+html.dark .manual-badge {
+  background: rgba(251, 191, 36, .22);
+  color: #fde68a;
+}
