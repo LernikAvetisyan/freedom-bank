@@ -94,22 +94,33 @@
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
   });
 
-  function renderTxns(list) {
-    const tbody = $("transactionsTable");
-    tbody.innerHTML = "";
-    list.forEach((t) => {
-      const d = parseTs(t.timestamp);
-      const when = d ? dtLA.format(d) : "--";
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="p-2 font-mono text-sm">${when}</td>
-        <td class="p-2">${t.merchant ?? ""}</td>
-        <td class="p-2"><span class="badge">${t.category ?? ""}</span></td>
-        <td class="p-2 ${t.amount < 0 ? "amount-pos" : "amount-neg"}">${fmtMoney.format(t.amount)}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+ function renderTxns(list) {
+  const tbody = $("transactionsTable");
+  tbody.innerHTML = "";
+
+  list.forEach((t) => {
+    const d = parseTs(t.timestamp);
+    const when = d ? dtLA.format(d) : "--";
+
+    // robust: handle undefined / different casing / stray whitespace
+    const isManual = String(t.source || "").trim().toLowerCase() === "manual";
+
+    const tr = document.createElement("tr");
+    tr.className = isManual ? "row-manual" : "";
+
+    tr.innerHTML = `
+      <td class="p-2 font-mono text-sm">${when}</td>
+      <td class="p-2">
+        ${t.merchant ?? ""}
+       ${isManual ? '<span class="manual-badge">Manual</span>' : ''}
+      </td>
+      <td class="p-2"><span class="badge">${t.category ?? ""}</span></td>
+      <td class="p-2 ${t.amount < 0 ? "amount-pos" : "amount-neg"}">${fmtMoney.format(t.amount)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 
   function applyFilters() {
     const q = ($("searchBox").value || "").toLowerCase();
@@ -242,21 +253,20 @@
     // Flatpickr date picker: read-only; icon opens it; no native mobile picker
     if (window.flatpickr) {
       datePickerInstance = flatpickr("#datePicker", {
-        allowInput: false,      // block typing
-        clickOpens: true,       // clicking the input opens
-        disableMobile: true,    // force flatpickr UI on mobile
+        allowInput: false,
+        clickOpens: true,
+        disableMobile: true,
         dateFormat: "Y-m-d",
         onChange: applyFilters
       });
 
       const input = $("#datePicker");
       if (input) {
-        input.setAttribute("readonly", "readonly");     // prevent keyboard
-        input.setAttribute("inputmode", "none");        // mobile keyboards
+        input.setAttribute("readonly", "readonly");
+        input.setAttribute("inputmode", "none");
         input.addEventListener("keydown", (e) => e.preventDefault());
       }
 
-      // Clicking the calendar icon opens the picker
       $("#datePickerBtn")?.addEventListener("click", (e) => {
         e.preventDefault();
         datePickerInstance?.open();
@@ -266,6 +276,17 @@
     startLAClock();
     setupListeners();
     renderGenCount();
+
+    // Keep (0/5) badge in sync when LA day rolls over (no page reload needed)
+    let lastQuotaKey = QUOTA_KEY();
+    setInterval(() => {
+      const k = QUOTA_KEY();
+      if (k !== lastQuotaKey) {
+        lastQuotaKey = k;
+        renderGenCount();     // reset visual counter at LA midnight
+        updateTodayCount();   // refresh "Generated Transactions (Today)" number
+      }
+    }, 30 * 1000); // check every 30s
 
     try {
       await loadAccount();
