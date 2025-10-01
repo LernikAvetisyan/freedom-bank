@@ -5,25 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Freedom Bank — Dashboard</title>
 
-
   <!-- Favicon -->
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico"> <!-- optional fallback if you later add one -->
-<meta name="theme-color" content="#3b82f6">
-
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/favicon.ico">
+  <meta name="theme-color" content="#3b82f6">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
 
-  <!-- Date picker (flatpickr) - include BEFORE your styles -->
+  <!-- Date picker -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
   <!-- Styles & Tailwind -->
- <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Firebase -->
@@ -33,7 +31,7 @@
   <!-- App scripts -->
   <script defer src="./theme.js"></script>
   <script defer src="./firebase-config.js"></script>
-  <script defer src="./dashboard.js?v=5"></script>
+  <script defer src="./dashboard.js?v=6"></script>
 </head>
 <body class="min-h-screen text-[var(--text-primary)]">
   <!-- Header -->
@@ -82,20 +80,30 @@
           <span id="laDate" class="text-sm text-[var(--text-secondary)]"></span>
         </div>
         <p id="laClock" class="text-4xl font-black tracking-wider mt-2">--:--:--</p>
-        <p class="text-sm text-[var(--text-secondary)]/80 mt-2">Daily cap resets at LA midnight.</p>
+        <p class="text-sm text-[var(--text-secondary)]/80 mt-2">Daily caps reset at LA midnight.</p>
       </section>
 
       <section class="glass rounded-xl p-6">
         <h2 class="font-semibold text-[var(--text-secondary)] mb-1">Generated Transactions (Today)</h2>
         <p id="todayCount" class="text-4xl font-black">0</p>
-        <p class="text-sm text-[var(--text-secondary)]/80 mt-2">Counts transactions dated today (LA time).</p>
+        <p class="text-sm text-[var(--text-secondary)]/80 mt-2">Counts transactions for the selected account (LA time).</p>
       </section>
     </div>
 
     <!-- Account -->
     <section class="glass rounded-xl p-6">
-      <h2 class="text-lg font-bold mb-3">Checking Account</h2>
-      <p id="accountInfo" class="text-[var(--text-secondary)] font-mono">Loading account...</p>
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 id="accountTitle" class="text-lg font-bold mb-3">Checking Account</h2>
+          <p id="accountInfo" class="text-[var(--text-secondary)] font-mono">Loading account...</p>
+        </div>
+
+        <!-- Beautiful segmented toggle -->
+        <div class="seg-toggle" role="tablist" aria-label="Account type">
+          <button id="btnChecking" class="seg active" role="tab" aria-selected="true" data-acct="checking">Checking</button>
+          <button id="btnCredit" class="seg" role="tab" aria-selected="false" data-acct="credit">Credit Card</button>
+        </div>
+      </div>
     </section>
 
     <!-- Transactions -->
@@ -107,11 +115,10 @@
           <!-- Calendar filter -->
           <div class="relative">
             <input id="datePicker" placeholder="Select a date…" class="input-field w-40 pl-9" />
-            <!-- Make the icon a BUTTON so it can open the calendar -->
             <button id="datePickerBtn" type="button" aria-label="Open calendar"
-                    class="absolute inset-y-0 left-0 flex items-center pl-3">
+              class="absolute inset-y-0 left-0 flex items-center pl-3">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                   class="w-5 h-5 text-[var(--text-secondary)]">
+                class="w-5 h-5 text-[var(--text-secondary)]">
                 <path fill-rule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zM4.5 8.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25V8.5h-11z" clip-rule="evenodd" />
               </svg>
             </button>
