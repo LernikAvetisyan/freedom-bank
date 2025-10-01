@@ -15,8 +15,9 @@ const MIN_TXNS   = parseInt(process.env.MIN_TXNS   || '3', 10);  // random gener
 const MAX_TXNS   = parseInt(process.env.MAX_TXNS   || '5', 10);  // random generator per LA day (upper bound)
 const MANUAL_CAP = parseInt(process.env.MANUAL_CAP || '5', 10);  // "Generate" button daily cap per LA day
 const TIMEZONE   = process.env.TIMEZONE || 'America/Los_Angeles';
+const ACCOUNT_TYPES = ['checking', 'credit'];                    // NEW: supported accounts
 
-/* ---------- Transaction pool ---------- */
+/* ---------- Transaction pool (UNCHANGED) ---------- */
 const TRANSACTION_POOL = {
   Groceries: [
     { merchant: "Trader Joe's", min: 25, max: 150 },
@@ -203,6 +204,31 @@ function randomAmount(info) {
   return Number((sign * v).toFixed(2));
 }
 
+/* ---------- Account helpers (NEW) ---------- */
+function normalizeAccount(acctRaw) {
+  const a = String(acctRaw || '').toLowerCase();
+  if (ACCOUNT_TYPES.includes(a)) return a;
+  if (a === 'main') return 'checking'; // backward friendly
+  return 'checking';
+}
+function getAccountRef(uid, acctRaw) {
+  const acct = normalizeAccount(acctRaw);
+  return db.collection('users').doc(uid).collection('account').doc(acct);
+}
+async function ensureAccount(accountRef) {
+  const snap = await accountRef.get();
+  if (!snap.exists) {
+    await accountRef.set({
+      accountNumber: randomDigits(16),
+      cvv: makeCVV(),
+      expiry: makeExpiry(),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return accountRef.get();
+  }
+  return snap;
+}
+
 /* ---------- Transaction creation ---------- */
 async function makeTransaction(accountRef, source = 'auto') {
   const cat = pick(CATEGORIES);
@@ -245,7 +271,7 @@ async function maybeGenerate(accountRef) {
   const dateStr = laDateKey();  // LA day
   const { ref: dtRef, target, generated } = await getDailyTarget(accountRef, dateStr);
   if (generated >= target) return null;
-  const txn = await makeTransaction(accountRef, 'auto'); // ✅ scheduled -> auto
+  const txn = await makeTransaction(accountRef, 'auto');  // scheduled -> auto
   await dtRef.update({ generated: FieldValue.increment(1) });
   return txn;
 }
@@ -262,30 +288,23 @@ async function getManualCounter(accountRef, dateStr) {
   return { ref, used: d.used || 0, cap: d.cap || MANUAL_CAP };
 }
 
-/* ---------- Per-user tick ---------- */
+/* ---------- Per-user tick (NOW runs for both accounts) ---------- */
 async function hourlyTickAccounts() {
   const users = await auth.listUsers(1000);
   const logs = [];
   for (const u of users.users) {
-    const accountRef = db.collection('users').doc(u.uid).collection('account').doc('main');
+    for (const acct of ACCOUNT_TYPES) {
+      const accountRef = getAccountRef(u.uid, acct);
 
-    // Ensure account exists
-    let accountSnap = await accountRef.get();
-    if (!accountSnap.exists) {
-      await accountRef.set({
-        accountNumber: randomDigits(16),
-        cvv: makeCVV(),
-        expiry: makeExpiry(),
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      accountSnap = await accountRef.get();
-    }
+      // Ensure account exists
+      await ensureAccount(accountRef);
 
-    try {
-      const made = await maybeGenerate(accountRef);
-      if (made) logs.push(`${u.uid}: ${made.merchant} $${made.amount}`);
-    } catch (e) {
-      console.error('Error generating txn', e);
+      try {
+        const made = await maybeGenerate(accountRef);
+        if (made) logs.push(`${u.uid} [${acct}]: ${made.merchant} $${made.amount}`);
+      } catch (e) {
+        console.error(`Error generating txn for ${u.uid}/${acct}`, e);
+      }
     }
   }
   return logs;
@@ -318,35 +337,27 @@ exports.tick = onRequest(async (req, res) => {
     const decoded = await auth.verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    const accountRef = db.collection('users').doc(uid).collection('account').doc('main');
+    const acct = normalizeAccount(req.query.account || 'checking');
+    const accountRef = getAccountRef(uid, acct);
 
     // Ensure account exists
-    let accountSnap = await accountRef.get();
-    if (!accountSnap.exists) {
-      await accountRef.set({
-        accountNumber: randomDigits(16),
-        cvv: makeCVV(),
-        expiry: makeExpiry(),
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      accountSnap = await accountRef.get();
-    }
+    await ensureAccount(accountRef);
 
     const dateStr = laDateKey(); // LA day
     const { ref: counterRef, used, cap } = await getManualCounter(accountRef, dateStr);
 
     if (used >= cap) {
-      return res.status(429).json({ error: 'daily_limit_reached', used, cap, remaining: 0 });
+      return res.status(429).json({ error: 'daily_limit_reached', used, cap, remaining: 0, account: acct });
     }
 
-    const txn = await makeTransaction(accountRef, 'manual'); // ✅ manual -> highlighted
+    const txn = await makeTransaction(accountRef, 'manual'); // manual -> highlighted
     await counterRef.update({ used: FieldValue.increment(1) });
 
     const afterSnap = await counterRef.get();
     const afterUsed = (afterSnap.data().used || used + 1);
     const remaining = Math.max(0, cap - afterUsed);
 
-    return res.status(200).json({ ok: true, remaining, item: txn });
+    return res.status(200).json({ ok: true, remaining, item: txn, account: acct });
   } catch (e) {
     console.error('Tick error', e);
     return res.status(500).json({ error: String(e) });
@@ -369,26 +380,19 @@ exports.api = onRequest(async (req, res) => {
     const decoded = await auth.verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    const accountRef = db.collection('users').doc(uid).collection('account').doc('main');
+    const acct = normalizeAccount(req.query.account || 'checking');
+    const accountRef = getAccountRef(uid, acct);
 
     // Ensure account exists
-    let accountSnap = await accountRef.get();
-    if (!accountSnap.exists) {
-      await accountRef.set({
-        accountNumber: randomDigits(16),
-        cvv: makeCVV(),
-        expiry: makeExpiry(),
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      accountSnap = await accountRef.get();
-    }
+    const accountSnap = await ensureAccount(accountRef);
 
     // GET /account
     if (req.method === 'GET' && (normPath === '/account' || normPath.endsWith('/account'))) {
       const data = accountSnap.data();
       return res.json({
+        account: acct,
         accountNumber: data.accountNumber,
-        last4: data.accountNumber.slice(-4),
+        last4: String(data.accountNumber || '').slice(-4),
         cvv: data.cvv,
         expiry: data.expiry,
         createdAt: data.createdAt,
@@ -426,7 +430,7 @@ exports.api = onRequest(async (req, res) => {
       });
 
       txns.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      return res.json({ items: txns.slice(0, Number(limit)) });
+      return res.json({ account: acct, items: txns.slice(0, Number(limit)) });
     }
 
     return res.status(404).json({ error: 'Not found', path: normPath });
