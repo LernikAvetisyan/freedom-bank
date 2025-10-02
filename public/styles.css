@@ -71,6 +71,8 @@ body {
 
 /* Transactions Table */
 .transactions-table { width: 100%; border-collapse: collapse; }
+.transactions-table th,
+.transactions-table td { vertical-align: middle; }
 .transactions-table th {
   text-align: left;
   font-weight: 600;
@@ -89,6 +91,9 @@ body {
 .transactions-table tbody tr:last-child td { border-bottom: none; }
 .transactions-table tbody tr:hover { background: rgba(59,130,246,.05); }
 html.dark .transactions-table tbody tr:hover { background: rgba(96,165,250,.08); }
+
+/* keep date/time tidy in first column */
+.transactions-table td:first-child { white-space: nowrap; }
 
 /* Badges & Amounts */
 .badge {
@@ -159,21 +164,23 @@ html.dark .btn-warning { color:#1f2937; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); backdrop-filter: blur(4px); }
 .modal-card { position: relative; z-index: 1; max-width: 28rem; width: 100%; box-shadow: var(--shadow-medium); }
 
-/* --- Manual (Generate button) transactions highlight --- */
+/* --- Manual (Generate button) transactions highlight — FIXED --- */
+/* Use inset box-shadow for the left stripe instead of ::before on <tr>. */
 .transactions-table tr.row-manual {
-  position: relative;
   background: rgba(245, 158, 11, .06); /* amber-500 @ ~6% */
+  box-shadow: inset 4px 0 0 var(--color-yellow);
 }
 html.dark .transactions-table tr.row-manual {
   background: rgba(251, 191, 36, .10); /* amber-400 @ ~10% */
+  box-shadow: inset 4px 0 0 var(--color-yellow);
 }
-.transactions-table tr.row-manual::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 4px;
-  background: var(--color-yellow);
+.transactions-table tr.row-manual:hover {
+  background: rgba(245, 158, 11, .06) !important;
 }
+html.dark .transactions-table tr.row-manual:hover {
+  background: rgba(251, 191, 36, .10) !important;
+}
+
 .manual-badge {
   display: inline-block;
   margin-left: .5rem;
@@ -189,12 +196,6 @@ html.dark .transactions-table tr.row-manual {
 html.dark .manual-badge {
   background: rgba(251, 191, 36, .22);
   color: #fde68a;
-}
-.transactions-table tr.row-manual:hover {
-  background: rgba(245, 158, 11, .06) !important;
-}
-html.dark .transactions-table tr.row-manual:hover {
-  background: rgba(251, 191, 36, .10) !important;
 }
 
 /* --- Segmented Toggle (Account switch) --- */
@@ -217,10 +218,5 @@ html.dark .transactions-table tr.row-manual:hover {
   cursor: pointer;
   transition: background-color .2s ease, color .2s ease, transform .05s ease;
 }
-.seg-toggle .seg:hover {
-  background: rgba(59,130,246,.08);
-}
-.seg-toggle .seg.active {
-  background: var(--accent-primary);
-  color: white;
-}
+.seg-toggle .seg:hover { background: rgba(59,130,246,.08); }
+.seg-toggle .seg.active { background: var(--accent-primary); color: white; }
