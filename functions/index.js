@@ -230,14 +230,20 @@ async function ensureAccount(accountRef) {
 }
 
 /* ---------- Transaction creation ---------- */
+// ---------- Transaction creation (manual = now, auto = random last hour) ----------
 async function makeTransaction(accountRef, source = 'auto') {
-  const cat = pick(CATEGORIES);
+  const cat  = pick(CATEGORIES);
   const info = pick(TRANSACTION_POOL[cat]);
   const amount = randomAmount(info);
 
   const now = new Date();
-  const minutesAgo = Math.floor(Math.random() * 60);
-  const ts = new Date(now.getTime() - minutesAgo * 60000); // random recent time
+
+  // Manual clicks use the current time (optional tiny jitter to avoid identical seconds if you double-click)
+  // Autos keep a random timestamp within the last hour so they look organic.
+  const jitterMinutes = source === 'manual' ? 0 : Math.floor(Math.random() * 60);
+  const jitterSeconds = source === 'manual' ? Math.floor(Math.random() * 3) : Math.floor(Math.random() * 60);
+
+  const ts = new Date(now.getTime() - (jitterMinutes * 60 + jitterSeconds) * 1000);
 
   const txn = {
     id: `sim_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
@@ -245,14 +251,15 @@ async function makeTransaction(accountRef, source = 'auto') {
     category: cat,
     amount,
     type: amount < 0 ? 'refund' : 'expense',
-    source,                        // manual/auto
-    date: laDateKey(ts),           // LA-day key for that timestamp  ✅
-    timestamp: ts,
+    source,                 // 'manual' or 'auto'
+    date: laDateKey(ts),    // LA-day key
+    timestamp: ts,          // actual moment
   };
 
   await accountRef.collection('transactions').doc(txn.id).set(txn);
   return txn;
 }
+
 
 /* ---------- Random generator (3–5 per LA day) ---------- */
 async function getDailyTarget(accountRef, dateStr) {
